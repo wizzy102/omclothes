@@ -12,11 +12,11 @@ Decisions made with the user:
 
 ## Steps
 1. Scaffold: folders, `assets/` with instructions, app shell, router stub. ✅
-2. Design system and Home screen.
+2. Design system and Home screen. ✅ Brand-matched: navy and copper from the logo, Cormorant Garamond with a script "Mood". Real product photos are wired in early, cleaned into `assets/img/`.
 3. Shop screen.
 4. Product page and cart drawer.
 5. Checkout and order-confirmed screen with the WhatsApp hand-off.
-6. Wire in the real logo and product images from `assets/`, then tune colours to the brand.
+6. Polish pass: confirm product names and prices with the owner and fine-tune image crops. Most of this step was pulled forward into step 2.
 7. Screenshot script, the 4 PNGs and the framed showcase versions.
 8. Offer message to the owner.
 
