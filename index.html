@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>OUTFIT MOOD</title>
+  <meta name="description" content="OUTFIT MOOD — menswear for going out. Order online, cash on delivery across Egypt." />
+  <meta name="theme-color" content="#111111" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button class="icon-btn" aria-label="Menu" data-action="menu">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+      </button>
+
+      <a href="#/" class="brand" aria-label="OUTFIT MOOD home">
+        <img src="assets/logo/logo.png" alt="" class="brand-logo" onerror="this.remove()" />
+        <span class="brand-word">OUTFIT MOOD</span>
+      </a>
+
+      <button class="icon-btn bag-btn" aria-label="Bag" data-action="cart">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8Z M9 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
+        <span class="bag-count" hidden>0</span>
+      </button>
+    </header>
+
+    <main id="view" class="view" tabindex="-1"></main>
+
+    <nav class="tabbar" aria-label="Main">
+      <a href="#/" data-tab="home">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="#/shop" data-tab="shop">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        <span>Shop</span>
+      </a>
+      <a href="#/checkout" data-tab="checkout">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8Z M9 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>
+        <span>Bag</span>
+      </a>
+    </nav>
+  </div>
+
+  <script src="products.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
