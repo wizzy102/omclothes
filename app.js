@@ -106,6 +106,112 @@
       ${footer()}`;
   }
 
+  // ---------- Shop ----------
+  const SIZES = ["S", "M", "L", "XL", "XXL"];
+  const SORTS = [
+    { id: "featured",   label: "Featured" },
+    { id: "new",        label: "Newest" },
+    { id: "price-asc",  label: "Price: low to high" },
+    { id: "price-desc", label: "Price: high to low" },
+  ];
+
+  function shopState(query) {
+    const q = new URLSearchParams(query || "");
+    return {
+      c: CATEGORIES.some((c) => c.id === q.get("c")) ? q.get("c") : "all",
+      size: SIZES.includes(q.get("size")) ? q.get("size") : "",
+      sort: SORTS.some((s) => s.id === q.get("sort")) ? q.get("sort") : "featured",
+    };
+  }
+
+  function shopQuery(st) {
+    const q = new URLSearchParams();
+    if (st.c !== "all") q.set("c", st.c);
+    if (st.size) q.set("size", st.size);
+    if (st.sort !== "featured") q.set("sort", st.sort);
+    const s = q.toString();
+    return s ? `?${s}` : "";
+  }
+
+  function shopResults(st) {
+    const list = PRODUCTS.filter((p) =>
+      (st.c === "all" || p.category === st.c) && (!st.size || p.sizes.includes(st.size))
+    );
+    if (st.sort === "price-asc") list.sort((a, b) => a.price - b.price);
+    if (st.sort === "price-desc") list.sort((a, b) => b.price - a.price);
+    if (st.sort === "new") list.sort((a, b) => (b.badge === "New") - (a.badge === "New"));
+    return list;
+  }
+
+  function shop(query) {
+    const st = shopState(query);
+    const list = shopResults(st);
+    const cat = CATEGORIES.find((c) => c.id === st.c);
+    const tabs = [{ id: "all", name: "All" }, ...CATEGORIES];
+
+    return `
+      <header class="page-head">
+        <span class="eyebrow">Winter Edit '26</span>
+        <h1 class="page-title">${cat ? cat.name : "Shop all"}</h1>
+      </header>
+
+      <nav class="tabs" aria-label="Categories">
+        ${tabs.map((t) => `
+          <button class="tab ${st.c === t.id ? "active" : ""}" data-cat="${t.id}">${t.name}</button>`).join("")}
+      </nav>
+
+      <div class="filters">
+        <div class="chips" role="group" aria-label="Filter by size">
+          <span class="chips-label">Size</span>
+          ${SIZES.map((s) => `
+            <button class="chip ${st.size === s ? "active" : ""}" data-size="${s}" aria-pressed="${st.size === s}">${s}</button>`).join("")}
+        </div>
+        <div class="results-bar">
+          <span class="count">${list.length} ${list.length === 1 ? "piece" : "pieces"}</span>
+          <label class="sort">
+            <span class="sr-only">Sort by</span>
+            <select data-sort>
+              ${SORTS.map((s) => `<option value="${s.id}" ${st.sort === s.id ? "selected" : ""}>${s.label}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <section class="section section-tight">
+        ${list.length
+          ? `<div class="grid">${list.map(productCard).join("")}</div>`
+          : `<div class="empty">
+               <p class="empty-title">Nothing in size ${st.size} here yet</p>
+               <p>New pieces drop every week.</p>
+               <button class="btn btn-primary" data-clear>Clear filters</button>
+             </div>`}
+      </section>
+
+      <p class="shop-note">New drops every week · Follow <strong>@omclothes2025</strong></p>
+      ${footer()}`;
+  }
+
+  function mountShop(query) {
+    let st = shopState(query);
+    const update = (patch) => {
+      st = { ...st, ...patch };
+      const y = window.scrollY;
+      view.innerHTML = shop(shopQuery(st).slice(1));
+      history.replaceState(null, "", `#/shop${shopQuery(st)}`);
+      window.scrollTo(0, y);
+    };
+    view.onclick = (e) => {
+      const t = e.target.closest("[data-cat],[data-size],[data-clear]");
+      if (!t) return;
+      if (t.dataset.cat) update({ c: t.dataset.cat });
+      else if (t.dataset.size) update({ size: st.size === t.dataset.size ? "" : t.dataset.size });
+      else update({ size: "", c: "all" });
+    };
+    view.onchange = (e) => {
+      if (e.target.matches("[data-sort]")) update({ sort: e.target.value });
+    };
+  }
+
   // Placeholder for pages built in later steps
   const stub = (title, note) => `
     <section class="stub">
@@ -116,7 +222,7 @@
   // ---------- Router ----------
   const routes = [
     { tab: "home",     match: /^\/?$/,                    render: home },
-    { tab: "shop",     match: /^\/shop(?:\?(.*))?$/,      render: () => stub("Shop", "Built in step 3.") },
+    { tab: "shop",     match: /^\/shop(?:\?(.*))?$/,      render: shop, mount: mountShop },
     { tab: "shop",     match: /^\/p\/([\w-]+)$/,          render: (id) => stub("Product", `Product “${id}” — built in step 4.`) },
     { tab: "checkout", match: /^\/checkout$/,             render: () => stub("Checkout", "Built in step 5.") },
     { tab: "checkout", match: /^\/order\/([\w-]+)$/,      render: (id) => stub("Order confirmed", `Order ${id} — built in step 5.`) },
@@ -131,7 +237,9 @@
     }
     if (!hit) { location.hash = "#/"; return; }
 
+    view.onclick = view.onchange = view.oninput = null;   // drop the previous page's handlers
     view.innerHTML = hit.render(...params);
+    if (hit.mount) hit.mount(...params);
     document.querySelectorAll(".tabbar a").forEach((a) =>
       a.classList.toggle("active", a.dataset.tab === hit.tab)
     );
