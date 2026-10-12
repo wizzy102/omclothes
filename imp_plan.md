@@ -14,7 +14,7 @@ Decisions made with the user:
 1. Scaffold: folders, `assets/` with instructions, app shell, router stub. ✅
 2. Design system and Home screen. ✅ Brand-matched: navy and copper from the logo, Cormorant Garamond with a script "Mood". Real product photos are wired in early, cleaned into `assets/img/`.
 3. Shop screen. ✅ Category tabs, size filter and sort, all kept in the URL. Includes an empty state.
-4. Product page and cart drawer.
+4. Product page and cart drawer. ✅ Two-slide gallery with a close-up, colour and size pickers, size guide sheet, delivery estimate by governorate that skips Fridays, and a sticky add-to-bag bar. The bag drawer has a free-delivery meter and persists in localStorage.
 5. Checkout and order-confirmed screen with the WhatsApp hand-off.
 6. Polish pass: confirm product names and prices with the owner and fine-tune image crops. Most of this step was pulled forward into step 2.
 7. Screenshot script, the 4 PNGs and the framed showcase versions.
