@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OUTFIT Mood showcase</title>
+<!-- Render target for tools/shoot.mjs. Single post: ?shot=01-home.png&n=1&l1=…&l2=…  Overview: ?overview=1&shots=a.png,b.png,… -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Herr+Von+Muellerhoff&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --cream: #f7f3ee; --navy: #0d2137; --copper: #93502a; --copper-lt: #e3b996; --ink-2: #5d6673;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: "Inter", system-ui, sans-serif; overflow: hidden; }
+
+  /* ---------- Phone mockup ---------- */
+  .phone {
+    position: relative;
+    background: #0b0f14;
+    padding: var(--bezel);
+    border-radius: calc(var(--r) + var(--bezel));
+    box-shadow: 0 40px 80px rgba(13,33,55,.28), 0 0 0 2px #2a2f36 inset;
+  }
+  .screen { border-radius: var(--r); overflow: hidden; background: var(--cream); position: relative; }
+  .screen img { display: block; width: 100%; }
+  .status {
+    display: flex; align-items: center; justify-content: space-between;
+    height: calc(var(--w) * 47 / 390);
+    padding: 0 calc(var(--w) * 30 / 390) 0 calc(var(--w) * 36 / 390);
+    background: var(--cream); color: #0d2137;
+    font-weight: 600; font-size: calc(var(--w) * 15 / 390);
+  }
+  .status svg { height: calc(var(--w) * 12 / 390); width: auto; margin-left: calc(var(--w) * 5 / 390); }
+  .island {
+    position: absolute; top: calc(var(--w) * 11 / 390); left: 50%; transform: translateX(-50%);
+    width: calc(var(--w) * 120 / 390); height: calc(var(--w) * 34 / 390);
+    border-radius: 999px; background: #0b0f14; z-index: 2;
+  }
+
+  /* ---------- Single post (1080×1350) ---------- */
+  .post {
+    position: relative; width: 1080px; height: 1350px; overflow: hidden;
+    background: var(--cream); color: var(--navy);
+  }
+  .post.dark { background: var(--navy); color: #fff; }
+  .post .mark {
+    position: absolute; right: -60px; top: 120px;
+    font-family: "Herr Von Muellerhoff", cursive; font-size: 520px; line-height: 1;
+    color: rgba(147,80,42,.08); pointer-events: none;
+  }
+  .post.dark .mark { color: rgba(227,185,150,.08); }
+  .post-head { position: absolute; left: 90px; right: 90px; top: 84px; }
+  .brand { display: flex; align-items: baseline; gap: 4px; }
+  .brand .o { font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: 34px; letter-spacing: .06em; }
+  .brand .m { font-family: "Herr Von Muellerhoff", cursive; font-size: 54px; color: var(--copper); line-height: .5; }
+  .post.dark .brand .m { color: var(--copper-lt); }
+  .num {
+    position: absolute; right: 0; top: 6px;
+    font-size: 15px; font-weight: 600; letter-spacing: .2em; color: var(--copper);
+  }
+  .post.dark .num { color: var(--copper-lt); }
+  .headline {
+    margin: 36px 0 0;
+    font-family: "Cormorant Garamond", serif; font-weight: 600;
+    font-size: 76px; line-height: 1.0; letter-spacing: -.005em;
+  }
+  .headline span { display: block; color: var(--copper); }
+  .post.dark .headline span { color: var(--copper-lt); }
+  .post .phone { --w: 400px; --bezel: 15px; --r: 54px; position: absolute; left: 50%; bottom: 48px; transform: translateX(-50%); width: calc(var(--w) + 30px); }
+
+  /* ---------- Overview (1920×1080) ---------- */
+  .overview {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: radial-gradient(1200px 600px at 50% 110%, #1d3550 0%, var(--navy) 60%);
+    color: #fff; text-align: center;
+  }
+  .overview .brand { justify-content: center; margin-top: 54px; }
+  .overview .brand .m { color: var(--copper-lt); }
+  .overview h1 {
+    margin: 14px 0 0;
+    font-family: "Cormorant Garamond", serif; font-weight: 500; font-size: 46px; letter-spacing: .01em;
+  }
+  .overview h1 em { font-style: normal; color: var(--copper-lt); }
+  .row { position: absolute; left: 0; right: 0; top: 214px; display: flex; justify-content: center; gap: 64px; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .cell .phone { --w: 320px; --bezel: 12px; --r: 42px; width: calc(var(--w) + 24px); }
+  .cell p { margin: 0; font-size: 19px; font-weight: 500; color: rgba(255,255,255,.82); }
+  .cell p b { color: var(--copper-lt); font-weight: 600; margin-right: 8px; }
+</style>
+</head>
+<body>
+<script>
+  const q = new URLSearchParams(location.search);
+  const icons = `
+    <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="currentColor"/><rect x="10" y="3" width="3" height="9" rx="1" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+    <svg viewBox="0 0 16 12"><path d="M8 12 5.6 9.5a3.4 3.4 0 0 1 4.8 0Z" fill="currentColor"/><path d="M3.4 7a6.5 6.5 0 0 1 9.2 0M1 4.4a9.9 9.9 0 0 1 14 0" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"/></svg>
+    <svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="23" height="11" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="8" rx="1.8" fill="currentColor"/><rect x="24.5" y="4" width="1.8" height="4" rx=".9" fill="currentColor" opacity=".4"/></svg>`;
+  const phone = (src) => `
+    <div class="phone">
+      <div class="screen">
+        <span class="island"></span>
+        <div class="status"><span>9:41</span><span>${icons}</span></div>
+        <img src="../screenshots/${src}" alt="" />
+      </div>
+    </div>`;
+  const brand = `<div class="brand"><span class="o">OUTFIT</span><span class="m">Mood</span></div>`;
+
+  if (q.get("overview")) {
+    const shots = q.get("shots").split(",");
+    const labels = ["Storefront", "Shop & filter", "Product & sizes", "Checkout & COD"];
+    document.body.innerHTML = `
+      <section class="overview">
+        ${brand}
+        <h1>Your Instagram shop, now a <em>full online store</em></h1>
+        <div class="row">
+          ${shots.map((s, i) => `<div class="cell">${phone(s)}<p><b>0${i + 1}</b>${labels[i] || ""}</p></div>`).join("")}
+        </div>
+      </section>`;
+  } else {
+    const n = Number(q.get("n") || 1);
+    document.body.innerHTML = `
+      <section class="post ${n % 2 === 0 ? "dark" : ""}">
+        <span class="mark">Mood</span>
+        <header class="post-head">
+          ${brand}
+          <span class="num">0${n} / 04</span>
+          <h1 class="headline">${q.get("l1") || ""}<span>${q.get("l2") || ""}</span></h1>
+        </header>
+        ${phone(q.get("shot"))}
+      </section>`;
+  }
+</script>
+</body>
+</html>

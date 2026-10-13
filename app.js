@@ -48,10 +48,8 @@
           ${badgeFor(p)}
           <span class="fav" aria-hidden="true">${icon.heart}</span>
         </div>
-        <div class="card-body">
-          <p class="card-name">${p.name}</p>
-          <div class="card-row">${money(p.price)}${swatches(p)}</div>
-        </div>
+        <p class="card-name">${p.name}</p>
+        <div class="card-row">${money(p.price)}${swatches(p)}</div>
       </a>`;
   }
 
@@ -732,7 +730,7 @@
             </div>
           </section>
 
-          <section class="co-card">
+          <section class="co-card" id="co-payment">
             <div class="co-h"><h2><span class="num">3</span>Payment</h2></div>
             <div class="pay-list" role="radiogroup" aria-label="Payment method">
               ${PAYMENTS.map((m) => `

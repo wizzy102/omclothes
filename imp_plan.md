@@ -17,7 +17,7 @@ Decisions made with the user:
 4. Product page and cart drawer. ✅ Two-slide gallery with a close-up, colour and size pickers, size guide sheet, delivery estimate by governorate that skips Fridays, and a sticky add-to-bag bar. The bag drawer has a free-delivery meter and persists in localStorage.
 5. Checkout and order-confirmed screen. ✅ Validated contact and delivery form with +20 phone check, governorate-based delivery fee, COD / InstaPay / Vodafone Cash, promo code MOOD10, and an order timeline. WhatsApp hand-off dropped at the user's request; the store calls to confirm instead.
 6. Polish pass: confirm product names and prices with the owner and fine-tune image crops. Most of this step was pulled forward into step 2.
-7. Screenshot script, the 4 PNGs and the framed showcase versions.
+7. Screenshot script, the 4 PNGs and the framed showcase versions. ✅ `node tools/shoot.mjs` drives Chrome with no npm packages. It outputs 4 phone screens at 1170×2532, 4 framed 1080×1350 posts and a 1920×1080 overview.
 8. Offer message to the owner.
 
 ## Approach
