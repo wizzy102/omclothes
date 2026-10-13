@@ -136,6 +136,13 @@
     requestAnimationFrame(() => { el.classList.add("open"); scrim.classList.add("open"); });
   }
   function closeOverlays() {
+    // If the bag was edited from the checkout page, refresh the order summary and totals
+    if (drawer.classList.contains("open") && document.body.dataset.page === "checkout") {
+      const y = window.scrollY;
+      view.innerHTML = checkout();
+      mountCheckout();
+      window.scrollTo(0, y);
+    }
     [drawer, sheet].forEach((el) => el.classList.remove("open"));
     scrim.classList.remove("open");
     document.body.classList.remove("locked");
@@ -588,20 +595,309 @@
     };
   }
 
-  // Placeholder for pages built in later steps
-  const stub = (title, note) => `
+  // Simple message page (not found, empty states)
+  const stub = (title, note, cta = "") => `
     <section class="stub">
       <h1>${title}</h1>
       <p>${note}</p>
+      ${cta}
     </section>`;
+
+  // ---------- Checkout ----------
+  const ORDERS_KEY = "om_orders_v1";
+  const CUSTOMER_KEY = "om_customer_v1";
+  const PROMOS = { MOOD10: 0.1 };            // prototype promo code: 10% off
+  const PAYMENTS = [
+    { id: "cod",      name: "Cash on delivery", sub: "Pay when your order arrives" },
+    { id: "instapay", name: "InstaPay",         sub: "Transfer after we confirm your order" },
+    { id: "vfcash",   name: "Vodafone Cash",    sub: "Transfer after we confirm your order" },
+  ];
+  let co = null;   // checkout form state, kept across re-renders
+
+  function freshCheckout() {
+    const saved = store.get(CUSTOMER_KEY, {});
+    return {
+      name: saved.name || "", phone: saved.phone || "",
+      gov: saved.gov || preferredGov().name,
+      area: saved.area || "", address: saved.address || "", landmark: saved.landmark || "",
+      payment: "cod", promo: "", promoApplied: "", promoError: "",
+      errors: {},
+    };
+  }
+
+  const normPhone = (v) => v.replace(/\D/g, "").replace(/^(20)?0?/, "");
+  const validPhone = (v) => /^1[0125]\d{8}$/.test(normPhone(v));
+  const prettyPhone = (v) => normPhone(v).replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");   // 122 345 6789
+
+  function validate(f) {
+    const e = {};
+    if (f.name.trim().length < 3) e.name = "Please enter your full name";
+    if (!validPhone(f.phone)) e.phone = "Enter a valid Egyptian mobile, e.g. 010 1234 5678";
+    if (f.area.trim().length < 2) e.area = "Please enter your city or area";
+    if (f.address.trim().length < 5) e.address = "Please enter street, building and apartment";
+    return e;
+  }
+
+  function totals(f) {
+    const sub = bagSubtotal();
+    const discount = Math.round(sub * (PROMOS[f.promoApplied] || 0));
+    const gov = govByName(f.gov);
+    const delivery = sub - discount >= STORE.freeShippingOver ? 0 : gov.fee;
+    return { sub, discount, delivery, total: sub - discount + delivery, gov };
+  }
+
+  const field = (f, key, label, attrs = "", optional = false) => `
+    <label class="field ${f.errors[key] ? "has-error" : ""}">
+      <span class="field-label">${label}${optional ? ` <em>Optional</em>` : ""}</span>
+      <input name="${key}" value="${escapeAttr(f[key])}" ${attrs} />
+      ${f.errors[key] ? `<span class="field-err">${f.errors[key]}</span>` : ""}
+    </label>`;
+
+  function escapeAttr(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+
+  function checkout() {
+    if (!bagCount()) {
+      co = null;
+      return stub("Your bag is empty", "Add a few pieces and come back to check out.",
+        `<a class="btn btn-primary" href="#/shop" style="margin-top:18px">Start shopping</a>`);
+    }
+    if (!co) co = freshCheckout();
+    const f = co;
+    const t = totals(f);
+
+    return `
+      <div class="checkout">
+        <header class="page-head">
+          <span class="eyebrow">Almost yours</span>
+          <h1 class="page-title">Checkout</h1>
+        </header>
+
+        <section class="co-card">
+          <div class="co-h">
+            <h2>Your order <span>· ${bagCount()} ${bagCount() === 1 ? "item" : "items"}</span></h2>
+            <button class="co-link" data-action="cart">Edit</button>
+          </div>
+          <ul class="mini-lines">
+            ${bag.map((i) => {
+              const p = byId(i.id);
+              return `
+                <li>
+                  <span class="mini-img"><img src="${p.img}" alt="" style="object-position:${p.focus}" /><b>${i.qty}</b></span>
+                  <span class="mini-info"><strong>${p.name}</strong><span>${i.color} · ${i.size}</span></span>
+                  ${money(p.price * i.qty)}
+                </li>`;
+            }).join("")}
+          </ul>
+        </section>
+
+        <form class="co-form" novalidate>
+          <section class="co-card">
+            <div class="co-h"><h2><span class="num">1</span>Contact</h2></div>
+            ${field(f, "name", "Full name", `autocomplete="name" placeholder="e.g. Ahmed Hassan"`)}
+            <label class="field ${f.errors.phone ? "has-error" : ""}">
+              <span class="field-label">Mobile number</span>
+              <span class="phone-input">
+                <span class="cc">+20</span>
+                <input name="phone" value="${escapeAttr(f.phone)}" inputmode="tel" autocomplete="tel-national" placeholder="10 1234 5678" />
+              </span>
+              ${f.errors.phone
+                ? `<span class="field-err">${f.errors.phone}</span>`
+                : `<span class="field-help">We'll call this number to confirm your order</span>`}
+            </label>
+          </section>
+
+          <section class="co-card">
+            <div class="co-h"><h2><span class="num">2</span>Delivery</h2></div>
+            <label class="field">
+              <span class="field-label">Governorate</span>
+              <span class="select-wrap">
+                <select name="gov">
+                  ${GOVERNORATES.map((g) => `<option ${g.name === f.gov ? "selected" : ""}>${g.name}</option>`).join("")}
+                </select>
+              </span>
+            </label>
+            ${field(f, "area", "City / area", `autocomplete="address-level2" placeholder="e.g. Nasr City"`)}
+            ${field(f, "address", "Street, building, floor, apartment", `autocomplete="street-address" placeholder="e.g. 12 Abbas El Akkad St, Bldg 5, Floor 3, Apt 8"`)}
+            ${field(f, "landmark", "Landmark", `placeholder="e.g. Next to City Stars"`, true)}
+
+            <div class="ship-option">
+              ${icon.truck}
+              <span class="info-text">
+                <span class="info-title">Standard delivery</span>
+                <span class="info-sub">Arrives ${arrivalText(t.gov)}</span>
+              </span>
+              <span class="ship-fee">${t.delivery ? `EGP ${t.delivery}` : "Free"}</span>
+            </div>
+          </section>
+
+          <section class="co-card">
+            <div class="co-h"><h2><span class="num">3</span>Payment</h2></div>
+            <div class="pay-list" role="radiogroup" aria-label="Payment method">
+              ${PAYMENTS.map((m) => `
+                <label class="pay ${f.payment === m.id ? "active" : ""}">
+                  <input type="radio" name="payment" value="${m.id}" ${f.payment === m.id ? "checked" : ""} />
+                  <span class="radio" aria-hidden="true"></span>
+                  <span class="info-text"><span class="info-title">${m.name}</span><span class="info-sub">${m.sub}</span></span>
+                  ${m.id === "cod" ? `<span class="pay-tag">Popular</span>` : ""}
+                </label>`).join("")}
+            </div>
+          </section>
+
+          <section class="co-card">
+            <div class="promo-row ${f.promoError ? "has-error" : ""}">
+              <input name="promo" value="${escapeAttr(f.promo)}" placeholder="Promo code" autocapitalize="characters" />
+              <button type="button" class="btn-apply" data-promo>${f.promoApplied ? "Applied" : "Apply"}</button>
+            </div>
+            ${f.promoError ? `<span class="field-err">${f.promoError}</span>` : ""}
+            ${f.promoApplied ? `<span class="field-ok">${icon.check} ${f.promoApplied} — 10% off your order</span>` : ""}
+
+            <dl class="totals">
+              <div><dt>Subtotal</dt><dd>${money(t.sub)}</dd></div>
+              ${t.discount ? `<div class="disc"><dt>Discount</dt><dd>−${money(t.discount)}</dd></div>` : ""}
+              <div><dt>Delivery · ${t.gov.name}</dt><dd>${t.delivery ? money(t.delivery) : `<span class="free">Free</span>`}</dd></div>
+              <div class="grand"><dt>Total</dt><dd>${money(t.total)}</dd></div>
+            </dl>
+          </section>
+
+          <p class="co-legal">${icon.swap} Free exchange within ${STORE.exchangeDays} days. We'll call to confirm before we ship.</p>
+        </form>
+
+        <div class="buybar">
+          <div class="buybar-price">
+            ${money(t.total)}
+            <span>${PAYMENTS.find((m) => m.id === f.payment).name}</span>
+          </div>
+          <button class="btn btn-primary" data-place>Place order</button>
+        </div>
+      </div>`;
+  }
+
+  function mountCheckout() {
+    if (!co) return;
+    const rerender = () => {
+      const y = window.scrollY;
+      view.innerHTML = checkout();
+      window.scrollTo(0, y);
+    };
+
+    view.oninput = (e) => {
+      const n = e.target.name;
+      if (["name", "phone", "area", "address", "landmark", "promo"].includes(n)) {
+        co[n] = e.target.value;
+        if (co.errors[n]) {                 // clear the error as soon as it's fixed
+          const still = validate(co)[n];
+          if (!still) { delete co.errors[n]; e.target.closest(".field")?.classList.remove("has-error"); e.target.closest(".field")?.querySelector(".field-err")?.remove(); }
+        }
+      }
+    };
+    view.onchange = (e) => {
+      if (e.target.name === "gov") { co.gov = e.target.value; store.set(GOV_KEY, co.gov); rerender(); }
+      if (e.target.name === "payment") { co.payment = e.target.value; rerender(); }
+    };
+    view.onclick = (e) => {
+      if (e.target.closest("[data-promo]")) {
+        const code = co.promo.trim().toUpperCase();
+        if (PROMOS[code]) { co.promoApplied = code; co.promo = code; co.promoError = ""; }
+        else { co.promoApplied = ""; co.promoError = code ? "That code isn't valid" : "Enter a code first"; }
+        rerender();
+      }
+      if (e.target.closest("[data-place]")) placeOrder();
+    };
+    view.onsubmit = (e) => { e.preventDefault(); placeOrder(); };
+
+    function placeOrder() {
+      co.errors = validate(co);
+      if (Object.keys(co.errors).length) {
+        rerender();
+        view.querySelector(".has-error")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      const orders = store.get(ORDERS_KEY, []);
+      const t = totals(co);
+      const order = {
+        id: `OM-${1048 + orders.length}`,
+        placedAt: new Date().toISOString(),
+        items: bag.map((i) => ({ ...i, name: byId(i.id).name, price: byId(i.id).price, img: byId(i.id).img, focus: byId(i.id).focus })),
+        customer: { name: co.name.trim(), phone: `+20 ${prettyPhone(co.phone)}`, gov: co.gov, area: co.area.trim(), address: co.address.trim(), landmark: co.landmark.trim() },
+        payment: co.payment,
+        promo: co.promoApplied,
+        sub: t.sub, discount: t.discount, delivery: t.delivery, total: t.total,
+        arrival: arrivalText(t.gov),
+      };
+      store.set(ORDERS_KEY, [...orders, order]);
+      store.set(CUSTOMER_KEY, { name: order.customer.name, phone: co.phone, gov: co.gov, area: co.area, address: co.address, landmark: co.landmark });
+      bag = [];
+      saveBag();
+      co = null;
+      location.hash = `#/order/${order.id}`;
+    }
+  }
+
+  // ---------- Order confirmed ----------
+  function orderPage(id) {
+    const o = store.get(ORDERS_KEY, []).find((x) => x.id === id);
+    if (!o) return stub("Order not found", "We couldn't find that order on this device.",
+      `<a class="btn btn-primary" href="#/shop" style="margin-top:18px">Continue shopping</a>`);
+    const first = o.customer.name.split(" ")[0];
+    const pay = PAYMENTS.find((m) => m.id === o.payment);
+    const placed = new Date(o.placedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+    return `
+      <div class="order">
+        <div class="order-hero">
+          <span class="order-tick">${icon.check}</span>
+          <span class="eyebrow">Order ${o.id}</span>
+          <h1 class="page-title">Thank you, <em>${first}</em></h1>
+          <p>Your order is in. We'll call <strong>${o.customer.phone}</strong> to confirm it before we ship.</p>
+        </div>
+
+        <section class="co-card">
+          <ol class="timeline">
+            <li class="done"><span></span><div><strong>Order placed</strong><small>${placed}</small></div></li>
+            <li><span></span><div><strong>Confirmed by phone</strong><small>Usually within a few hours</small></div></li>
+            <li><span></span><div><strong>Out for delivery</strong><small>${o.customer.gov}</small></div></li>
+            <li><span></span><div><strong>Delivered</strong><small>${o.arrival}</small></div></li>
+          </ol>
+        </section>
+
+        <section class="co-card">
+          <div class="co-h"><h2>Order summary</h2></div>
+          <ul class="mini-lines">
+            ${o.items.map((i) => `
+              <li>
+                <span class="mini-img"><img src="${i.img}" alt="" style="object-position:${i.focus}" /><b>${i.qty}</b></span>
+                <span class="mini-info"><strong>${i.name}</strong><span>${i.color} · ${i.size}</span></span>
+                ${money(i.price * i.qty)}
+              </li>`).join("")}
+          </ul>
+          <dl class="totals">
+            <div><dt>Subtotal</dt><dd>${money(o.sub)}</dd></div>
+            ${o.discount ? `<div class="disc"><dt>Discount · ${o.promo}</dt><dd>−${money(o.discount)}</dd></div>` : ""}
+            <div><dt>Delivery</dt><dd>${o.delivery ? money(o.delivery) : `<span class="free">Free</span>`}</dd></div>
+            <div class="grand"><dt>Total</dt><dd>${money(o.total)}</dd></div>
+          </dl>
+        </section>
+
+        <section class="co-card order-meta">
+          <div><span class="field-label">Deliver to</span><p>${o.customer.name}<br/>${o.customer.address}<br/>${o.customer.area}, ${o.customer.gov}${o.customer.landmark ? `<br/><small>${o.customer.landmark}</small>` : ""}</p></div>
+          <div><span class="field-label">Payment</span><p>${pay.name}<br/><small>${o.payment === "cod" ? `Have EGP ${fmt(o.total)} ready on delivery` : "We'll send transfer details when we call"}</small></p></div>
+        </section>
+
+        <div class="order-actions">
+          <a class="btn btn-primary btn-block" href="#/shop">Continue shopping</a>
+        </div>
+      </div>`;
+  }
 
   // ---------- Router ----------
   const routes = [
     { name: "home",     tab: "home",     match: /^\/?$/,                    render: home },
     { name: "shop",     tab: "shop",     match: /^\/shop(?:\?(.*))?$/,      render: shop, mount: mountShop },
     { name: "product",  tab: "shop",     match: /^\/p\/([\w-]+)$/,          render: product, mount: mountProduct },
-    { name: "checkout", tab: "checkout", match: /^\/checkout$/,             render: () => stub("Checkout", "Built in step 5.") },
-    { name: "order",    tab: "checkout", match: /^\/order\/([\w-]+)$/,      render: (id) => stub("Order confirmed", `Order ${id} — built in step 5.`) },
+    { name: "checkout", tab: "checkout", match: /^\/checkout$/,             render: checkout, mount: mountCheckout },
+    { name: "order",    tab: "checkout", match: /^\/order\/([\w-]+)$/,      render: orderPage },
   ];
 
   function router() {
@@ -613,8 +909,9 @@
     }
     if (!hit) { location.hash = "#/"; return; }
 
-    view.onclick = view.onchange = view.oninput = null;   // drop the previous page's handlers
+    view.onclick = view.onchange = view.oninput = view.onsubmit = null;   // drop the previous page's handlers
     if (hit.name !== "product") pdp = null;                // fresh selections next time a product opens
+    if (hit.name !== "checkout" && co) co.errors = {};     // keep typed details, drop stale errors
     closeOverlays();
     document.body.dataset.page = hit.name;
     view.innerHTML = hit.render(...params);
